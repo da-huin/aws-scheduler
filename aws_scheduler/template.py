@@ -5,7 +5,6 @@ from pprint import pprint
 import os
 import yaml
 import tools
-import server.settings
 
 
 class Template():

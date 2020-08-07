@@ -1,0 +1,48 @@
+{
+    "template_schemas": {
+        "glue": {
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "name": {},
+                    "Schedule": {},
+                    "S3TargetPath": {},
+                    "Description": {}
+                },
+                "required": [
+                    "name",
+                    "Schedule",
+                    "S3TargetPath"
+                ]
+            },
+            "properties": {
+                "Description": {
+                    "default": ""
+                }
+            }
+        },
+        "cloudwatch": {
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "Description": {},
+                    "name": {},
+                    "Schedule": {},
+                    "Input": {},
+                    "EventPattern": {}
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "properties": {
+                "Description": {
+                    "default": ""
+                },
+                "Input": {
+                    "default": {}
+                }
+            }
+        }
+    }
+}
