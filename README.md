@@ -48,18 +48,18 @@ pip install aws_scheduler
 
 ### Tutorial
 
-1. create `templates folder` wherever you want.
+1. **create `templates folder` wherever you want.**
 
-1. create `yaml` file in `just created templates folder`.
+1. **create `yaml` file in `just created templates folder`.**
 
     ```
     templates/
     - hello.yaml
     ```
 
-1. edit `just created yaml file`.
+1. **edit `just created yaml file`.**
 
-1. write this code to yaml file.
+1. **write this code to yaml file.**
 
     * details refer to [HERE](#yaml)
 
@@ -78,7 +78,7 @@ pip install aws_scheduler
     name: HelloWorld
     ```
 
-1. Run this code
+1. **Run this code**
 
     ```python
     import aws_scheduler
@@ -107,7 +107,7 @@ pip install aws_scheduler
     [glue] HelloWorld crawler created.
     ```
 
-1. You can check it here.
+1. **You can check it here.**
 
     Glue Console: https://aws.amazon.com/glue/
 
