@@ -34,15 +34,44 @@ class Scheduler():
         self._iam_client = self._load_client("iam")
         self._tags = {'created_by': 'aws_scheduler'}
 
-    def save_legacy_templates(self):
-        with open(self.get_legacy_template_path(), "w", encoding="utf-8") as fp:
+    def deploy(self, no_cache=False, delete_unmanaged=False):
+        filtered_templates = self.filter_template()
+
+        templates = None
+
+        if no_cache:
+            templates = self._tm._templates
+        else:
+            templates = filtered_templates
+
+        if delete_unmanaged:
+            self._delete_unmanaged_glue_crawlers()
+            self._delete_unmanaged_cloudwatch_rules()
+
+        for key in templates:
+            template = templates[key]
+            kind = template["kind"]
+            name = template["name"]
+            spec = self._tm.get_spec(name)
+
+            if kind == "cloudwatch":
+                self._put_cloudwatch_event(spec)
+            elif kind == "glue":
+                self._put_glue(spec)
+            else:
+                raise ValueError(f"invalid kind {kind}")
+
+        self._save_legacy_templates()
+
+    def _save_legacy_templates(self):
+        with open(self._get_legacy_template_path(), "w", encoding="utf-8") as fp:
             fp.write(json.dumps(self._tm._templates, ensure_ascii=False))
 
-    def load_legacy_templates(self):
+    def _load_legacy_templates(self):
         result = ""
-        if os.path.isfile(self.get_legacy_template_path()):
+        if os.path.isfile(self._get_legacy_template_path()):
 
-            with open(self.get_legacy_template_path(), "r", encoding="utf-8") as fp:
+            with open(self._get_legacy_template_path(), "r", encoding="utf-8") as fp:
                 result = json.loads(fp.read())
         else:
             result = None
@@ -51,27 +80,28 @@ class Scheduler():
 
     def filter_template(self):
         result = {}
-        legacy_templates = self.load_legacy_templates()
+        legacy_templates = self._load_legacy_templates()
         if legacy_templates == None:
             return self._tm._templates
 
+        
         for t_name in self._tm._templates:
             t = self._tm._templates[t_name]["origin"]
 
             same = False
             for lt_name in legacy_templates:
                 lt = legacy_templates[lt_name]["origin"]
-
                 if lt_name == t_name and t.get("spec") == lt.get("spec"):
                     same = True
                     break
+
 
             if not same:
                 result[t_name] = t
 
         return result
 
-    def get_legacy_template_path(self):
+    def _get_legacy_template_path(self):
         return self._legacy_template_path + "/scheduler-legacy-template.json"
 
     def _list_glue_crawlers(self):
@@ -110,7 +140,7 @@ class Scheduler():
 
         for crawler_name in unmanaged_crawlers:
             self._glue_client.delete_crawler(Name=crawler_name)
-            print(f"{crawler_name} crawler deleted (unmanaged crawler).")
+            print(f"[glue] {crawler_name} deleted (unmanaged crawler).")
 
         return unmanaged_crawlers
 
@@ -132,11 +162,11 @@ class Scheduler():
             # Rule can't be deleted since it has targets.
 
             self._event_client.delete_rule(Name=rule_name)
-            print(f"{rule_name} cloudwatch deleted (unmanaged rule).")
+            print(f"[cloudwatch] {rule_name} deleted (unmanaged rule).")
 
         return unmanaged_rule
 
-    def put_glue(self, spec):
+    def _put_glue(self, spec):
 
         name = spec["name"]
         database_name = spec.get("DatabaseName", name)
@@ -150,7 +180,7 @@ class Scheduler():
                 "Description": "Database",
             })
         deprecated = spec.get("deprecated", False)
-        spec["Description"] = spec.get("Description", "")
+        description = spec.get("Description", "")
         try:
             result = self._glue_client.delete_crawler(Name=name)
             # print(f"{name} crawler deleted.")
@@ -174,7 +204,7 @@ class Scheduler():
 
 
             result = self._glue_client.create_crawler(
-                Name=name, Description=spec["Description"], Role=glue_role_name,
+                Name=name, Description=description, Role=glue_role_name,
                 Targets={
                     "S3Targets": [{"Path": spec["S3TargetPath"]}],
                 }, Schedule=spec["Schedule"], DatabaseName=database_name, SchemaChangePolicy={
@@ -182,11 +212,11 @@ class Scheduler():
                     "DeleteBehavior": "DELETE_FROM_DATABASE",
                 }, Tags=self._tags
             )
-            print(f"{name} crawler created.")
+            print(f"[glue] {name} crawler created.")
 
         return result
 
-    def put_cloudwatch_event(self, spec):
+    def _put_cloudwatch_event(self, spec):
         name = spec["name"]
         function_name = spec.get("FunctionName", name)
 
@@ -205,7 +235,6 @@ class Scheduler():
                 Rule=function_name, Ids=[target_id]))
             result.append(
                 self._event_client.delete_rule(Name=function_name))
-            # print(f"{name} cloudwatch deleted")
 
         except self._event_client.exceptions.ResourceNotFoundException:
             pass
@@ -234,38 +263,9 @@ class Scheduler():
                 "Arn": lambda_arn,
                 "Input": json.dumps(input_value, ensure_ascii=False)
             }])
-            print(f"{name} cloudwatch created.")
+            print(f"[cloudwatch] {name} rule created.")
 
         return result
-
-    def deploy(self, no_cache=False, delete_unmanaged=False):
-        filtered_templates = self.filter_template()
-
-        templates = None
-        if no_cache:
-            templates = self._tm._templates
-        else:
-            templates = filtered_templates
-
-        if delete_unmanaged:
-            self._delete_unmanaged_glue_crawlers()
-            self._delete_unmanaged_cloudwatch_rules()
-
-        for key in templates:
-            template = templates[key]
-            kind = template["kind"]
-            name = template["name"]
-            spec = self._tm.get_spec(name)
-            print(f"[{kind}] deploying ... {name}")
-
-            if kind == "cloudwatch":
-                self.put_cloudwatch_event(spec)
-            elif kind == "glue":
-                self.put_glue(spec)
-            else:
-                raise ValueError(f"invalid kind {kind}")
-
-        self.save_legacy_templates()
 
     def _load_client(self, kind):
         return boto3.client(kind,
