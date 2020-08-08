@@ -6,7 +6,7 @@ import io
 from setuptools import find_packages, setup
 
 setup(name='aws_scheduler',
-      version='0.1.3',
+      version='1.0.0',
       description='This package makes it easy to manage Glue Crawler and Cloudwatch schedulers on AWS services. You can schedule lambda function execution, etc.',
       long_description="Please refer to the https://github.com/da-huin/aws_scheduler",
       long_description_content_type="text/markdown",
