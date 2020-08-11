@@ -46,7 +46,7 @@ You can use following functions.
 pip install aws_scheduler
 ```
 
-### Tutorial
+### 🚀 Tutorial
 
 1. **create `templates folder` wherever you want.**
 
